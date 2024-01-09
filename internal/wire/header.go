@@ -126,6 +126,7 @@ var ErrUnsupportedVersion = errors.New("unsupported version")
 // The Header is the version independent part of the header
 type Header struct {
 	typeByte byte
+	QuicBit  bool
 	Type     protocol.PacketType
 
 	Version          protocol.VersionNumber
@@ -174,6 +175,8 @@ func parseHeader(b *bytes.Reader, ignoreQuicBit bool) (*Header, error) {
 	}
 
 	h := &Header{typeByte: typeByte}
+	// log QUIC bit value  (Received: Long Header)
+	h.QuicBit = typeByte&0x40 > 0
 	err = h.parseLongHeader(b, ignoreQuicBit)
 	h.parsedLen = protocol.ByteCount(startLen - b.Len())
 	return h, err

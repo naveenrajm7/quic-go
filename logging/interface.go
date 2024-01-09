@@ -104,6 +104,7 @@ const (
 
 // The ShortHeader is the QUIC Short Header packet header, after removing header protection.
 type ShortHeader struct {
+	QuicBit          bool
 	DestConnectionID ConnectionID
 	PacketNumber     PacketNumber
 	PacketNumberLen  protocol.PacketNumberLen

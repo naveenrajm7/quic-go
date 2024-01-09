@@ -870,6 +870,7 @@ func (s *connection) handlePacketImpl(rp receivedPacket) bool {
 			if counter > 0 {
 				p.buffer.Split()
 			}
+			// greaseErrorCheck: See how many times this is called.
 			processed = s.handleShortHeaderPacket(p, destConnID)
 			break
 		}
@@ -889,6 +890,9 @@ func (s *connection) handleShortHeaderPacket(p receivedPacket, destConnID protoc
 		}
 	}()
 
+	// get quicBit from the first byte of the packet (Received: Short Header)
+	// I might be reading from encrypted shortheader packets, TEST and FIXME
+	quicBit := p.data[0]&0x40 > 0
 	pn, pnLen, keyPhase, data, err := s.unpacker.UnpackShortHeader(p.rcvTime, p.data)
 	if err != nil {
 		wasQueued = s.handleUnpackError(err, p, logging.PacketType1RTT)
@@ -913,6 +917,7 @@ func (s *connection) handleShortHeaderPacket(p receivedPacket, destConnID protoc
 		log = func(frames []logging.Frame) {
 			s.tracer.ReceivedShortHeaderPacket(
 				&logging.ShortHeader{
+					QuicBit:          quicBit,
 					DestConnectionID: destConnID,
 					PacketNumber:     pn,
 					PacketNumberLen:  pnLen,
@@ -1845,7 +1850,7 @@ func (s *connection) sendPackets(now time.Time) error {
 			return err
 		}
 		ecn := s.sentPacketHandler.ECNMode(true)
-		s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, ecn, buf.Len(), false)
+		s.logShortHeaderPacket(p.QuicBit, p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, ecn, buf.Len(), false)
 		s.registerPackedShortHeaderPacket(p, ecn, now)
 		s.sendQueue.Send(buf, 0, ecn)
 		// This is kind of a hack. We need to trigger sending again somehow.
@@ -2007,7 +2012,7 @@ func (s *connection) maybeSendAckOnlyPacket(now time.Time) error {
 		}
 		return err
 	}
-	s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, ecn, buf.Len(), false)
+	s.logShortHeaderPacket(p.QuicBit, p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, ecn, buf.Len(), false)
 	s.registerPackedShortHeaderPacket(p, ecn, now)
 	s.sendQueue.Send(buf, 0, ecn)
 	return nil
@@ -2053,7 +2058,8 @@ func (s *connection) appendOneShortHeaderPacket(buf *packetBuffer, maxSize proto
 		return 0, err
 	}
 	size := buf.Len() - startLen
-	s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, ecn, size, false)
+	// send QuicBit here
+	s.logShortHeaderPacket(p.QuicBit, p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, ecn, size, false)
 	s.registerPackedShortHeaderPacket(p, ecn, now)
 	return size, nil
 }
@@ -2161,6 +2167,7 @@ func (s *connection) logLongHeaderPacket(p *longHeaderPacket, ecn protocol.ECN) 
 }
 
 func (s *connection) logShortHeaderPacket(
+	quicBit bool,
 	destConnID protocol.ConnectionID,
 	ackFrame *wire.AckFrame,
 	frames []ackhandler.Frame,
@@ -2204,6 +2211,7 @@ func (s *connection) logShortHeaderPacket(
 		}
 		s.tracer.SentShortHeaderPacket(
 			&logging.ShortHeader{
+				QuicBit:          quicBit,
 				DestConnectionID: destConnID,
 				PacketNumber:     pn,
 				PacketNumberLen:  pnLen,
@@ -2223,6 +2231,7 @@ func (s *connection) logCoalescedPacket(packet *coalescedPacket, ecn protocol.EC
 		// during which we might call PackCoalescedPacket but just pack a short header packet.
 		if len(packet.longHdrPackets) == 0 && packet.shortHdrPacket != nil {
 			s.logShortHeaderPacket(
+				packet.shortHdrPacket.QuicBit,
 				packet.shortHdrPacket.DestConnID,
 				packet.shortHdrPacket.Ack,
 				packet.shortHdrPacket.Frames,
@@ -2246,7 +2255,7 @@ func (s *connection) logCoalescedPacket(packet *coalescedPacket, ecn protocol.EC
 		s.logLongHeaderPacket(p, ecn)
 	}
 	if p := packet.shortHdrPacket; p != nil {
-		s.logShortHeaderPacket(p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, ecn, p.Length, true)
+		s.logShortHeaderPacket(p.QuicBit, p.DestConnID, p.Ack, p.Frames, p.StreamFrames, p.PacketNumber, p.PacketNumberLen, p.KeyPhase, ecn, p.Length, true)
 	}
 }
 

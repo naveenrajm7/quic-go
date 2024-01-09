@@ -133,6 +133,9 @@ func (h *ExtendedHeader) Append(b []byte, quicBit bool, v protocol.VersionNumber
 	if !quicBit { // unset the quic bit
 		firstByte ^= 0x40
 	}
+	// log QUIC bit value  (Sent: Long Header)
+	h.Header.QuicBit = quicBit
+
 	if h.Type != protocol.PacketTypeRetry {
 		// Retry packets don't have a packet number
 		firstByte |= uint8(h.PacketNumberLen - 1)

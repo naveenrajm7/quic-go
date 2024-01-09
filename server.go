@@ -756,6 +756,7 @@ func (s *baseServer) sendRetryPacket(p rejectedPacket) error {
 
 	buf := getPacketBuffer()
 	defer buf.Release()
+	// quicBit hard coded here. Copied from original implementation. #3521
 	buf.Data, err = replyHdr.Append(buf.Data, true, hdr.Version)
 	if err != nil {
 		return err
@@ -825,6 +826,7 @@ func (s *baseServer) sendError(remoteAddr net.Addr, hdr *wire.Header, sealer han
 	replyHdr.PacketNumberLen = protocol.PacketNumberLen4
 	replyHdr.Length = 4 /* packet number len */ + ccf.Length(hdr.Version) + protocol.ByteCount(sealer.Overhead())
 	var err error
+	// quicBit hard coded here. Copied from original implementation. #3521
 	b.Data, err = replyHdr.Append(b.Data, true, hdr.Version)
 	if err != nil {
 		return err

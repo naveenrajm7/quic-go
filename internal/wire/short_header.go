@@ -59,6 +59,7 @@ func AppendShortHeader(b []byte, quicBit bool, connID protocol.ConnectionID, pn 
 	if !quicBit { // unset the quic bit
 		typeByte ^= 0x40
 	}
+	// How to add quic bit to log? See appendShortHeaderPacket in packet_packer.go
 	if kp == protocol.KeyPhaseOne {
 		typeByte |= byte(1 << 2)
 	}

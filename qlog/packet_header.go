@@ -47,6 +47,8 @@ type packetHeader struct {
 	SrcConnectionID  logging.ConnectionID
 	DestConnectionID logging.ConnectionID
 
+	QuicBit bool
+
 	Token *token
 }
 
@@ -56,6 +58,7 @@ func transformHeader(hdr *logging.Header) *packetHeader {
 		SrcConnectionID:  hdr.SrcConnectionID,
 		DestConnectionID: hdr.DestConnectionID,
 		Version:          hdr.Version,
+		QuicBit:          hdr.QuicBit,
 	}
 	if len(hdr.Token) > 0 {
 		h.Token = &token{Raw: hdr.Token}
@@ -71,6 +74,8 @@ func transformLongHeader(hdr *logging.ExtendedHeader) *packetHeader {
 }
 
 func (h packetHeader) MarshalJSONObject(enc *gojay.Encoder) {
+	// Add QUIC bit (fixed bit) to the qlog (Long Header)
+	enc.AddBoolKey("quic_bit", h.QuicBit)
 	enc.StringKey("packet_type", packetType(h.PacketType).String())
 	if h.PacketType != logging.PacketTypeRetry {
 		enc.Int64Key("packet_number", int64(h.PacketNumber))
@@ -137,6 +142,7 @@ func (h packetHeaderWithTypeAndPacketNumber) MarshalJSONObject(enc *gojay.Encode
 }
 
 type shortHeader struct {
+	QuicBit          bool
 	DestConnectionID logging.ConnectionID
 	PacketNumber     logging.PacketNumber
 	KeyPhaseBit      logging.KeyPhaseBit
@@ -144,6 +150,7 @@ type shortHeader struct {
 
 func transformShortHeader(hdr *logging.ShortHeader) *shortHeader {
 	return &shortHeader{
+		QuicBit:          hdr.QuicBit,
 		DestConnectionID: hdr.DestConnectionID,
 		PacketNumber:     hdr.PacketNumber,
 		KeyPhaseBit:      hdr.KeyPhase,
@@ -152,6 +159,8 @@ func transformShortHeader(hdr *logging.ShortHeader) *shortHeader {
 
 func (h shortHeader) IsNil() bool { return false }
 func (h shortHeader) MarshalJSONObject(enc *gojay.Encoder) {
+	// Add QUIC bit (fixed bit) to the qlog (Short Header)
+	enc.AddBoolKey("quic_bit", h.QuicBit)
 	enc.StringKey("packet_type", packetType(logging.PacketType1RTT).String())
 	if h.DestConnectionID.Len() > 0 {
 		enc.StringKey("dcid", h.DestConnectionID.String())

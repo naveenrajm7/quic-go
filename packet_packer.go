@@ -58,6 +58,7 @@ type shortHeaderPacket struct {
 	IsPathMTUProbePacket bool
 
 	// used for logging
+	QuicBit         bool
 	DestConnID      protocol.ConnectionID
 	PacketNumberLen protocol.PacketNumberLen
 	KeyPhase        protocol.KeyPhaseBit
@@ -842,6 +843,8 @@ func (p *packetPacker) appendShortHeaderPacket(
 		return shortHeaderPacket{}, fmt.Errorf("packetPacker BUG: Peeked and Popped packet numbers do not match: expected %d, got %d", pn, newPN)
 	}
 	return shortHeaderPacket{
+		// log QuicBit (Send: ShortHeader)
+		QuicBit:              !p.greaseQuicBit,
 		PacketNumber:         pn,
 		PacketNumberLen:      pnLen,
 		KeyPhase:             kp,
